@@ -66,6 +66,14 @@ def test_connection():
             "message": str(e)
         }), 500
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for deployment platforms"""
+    return jsonify({
+        "status": "healthy",
+        "message": "SEO Dashboard API is running"
+    }), 200
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     # Use 0.0.0.0 to listen on all interfaces for Railway
