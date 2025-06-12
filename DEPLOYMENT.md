@@ -34,22 +34,32 @@ If automatic deployment doesn't work, try these settings in Railway:
 
 ## Vercel Deployment (Frontend Only)
 
-For frontend deployment on Vercel:
+### Quick Vercel Setup:
 
-1. **Deploy Frontend:**
+1. **Import Project:**
    - Go to [vercel.com](https://vercel.com)
-   - Import your GitHub repository
-   - Set build settings:
-     - Framework: React
-     - Root Directory: `frontend`
-     - Build Command: `npm run build`
-     - Output Directory: `build`
+   - Import GitHub repository: `swilhoit/seo-dashboard`
 
-2. **Environment Variables:**
-   Add to Vercel dashboard:
+2. **Critical Settings:**
+   - **Framework:** Create React App
+   - **Root Directory:** `frontend` (IMPORTANT!)
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `build`
+
+3. **Environment Variables:**
+   In Vercel dashboard, add:
    ```
-   REACT_APP_API_URL=https://your-railway-backend-url.com/api
+   REACT_APP_API_URL=https://capable-flexibility-production.up.railway.app
    ```
+   *(Replace with your actual Railway domain)*
+
+4. **Deploy:**
+   Vercel will build only the frontend directory and deploy the React app.
+
+### Get Your Railway URL:
+1. Check Railway dashboard for your app's domain
+2. Test it works: visit `https://your-app.railway.app/ping`
+3. Use that URL in REACT_APP_API_URL (without /api suffix)
 
 ## Environment Variables
 
