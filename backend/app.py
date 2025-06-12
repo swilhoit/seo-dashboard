@@ -68,4 +68,7 @@ def test_connection():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
-    app.run(debug=True, host='127.0.0.1', port=port)
+    # Use 0.0.0.0 to listen on all interfaces for Railway
+    # Disable debug mode in production
+    debug_mode = os.environ.get('DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
