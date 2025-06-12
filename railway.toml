@@ -2,8 +2,8 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "gunicorn main:app --bind 0.0.0.0:$PORT --timeout 120"
-healthcheckPath = "/health"
+startCommand = "gunicorn simple_app:app --bind 0.0.0.0:$PORT --timeout 120"
+healthcheckPath = "/ping"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure" 
 restartPolicyMaxRetries = 3
