@@ -1,0 +1,2 @@
+# Ultra minimal requirements - just gunicorn for Railway
+gunicorn==21.2.0
