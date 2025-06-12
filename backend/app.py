@@ -71,7 +71,29 @@ def health_check():
     """Health check endpoint for deployment platforms"""
     return jsonify({
         "status": "healthy",
-        "message": "SEO Dashboard API is running"
+        "message": "SEO Dashboard API is running",
+        "version": "1.0.0"
+    }), 200
+
+@app.route('/health', methods=['GET'])
+def simple_health_check():
+    """Simple health check without /api prefix"""
+    return "OK", 200
+
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint"""
+    return jsonify({
+        "message": "SEO Dashboard API",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "api_health": "/api/health",
+            "keyword_research": "/api/keyword-research/*",
+            "domain_analytics": "/api/domain-analytics/*",
+            "competitor_analysis": "/api/competitor-analysis/*",
+            "serp": "/api/serp/*"
+        }
     }), 200
 
 if __name__ == '__main__':
