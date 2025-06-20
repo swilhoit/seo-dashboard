@@ -40,6 +40,9 @@ export const keywordResearchApi = {
   
   getLongTailKeywords: (keyword: string, location: string = 'United States', language: string = 'English', limit: number = 50) => 
     apiClient.post('/keyword-research/long-tail', { keyword, location, language, limit }),
+  
+  getAISuggestions: (keyword: string, industry: string = '', location: string = 'United States', language: string = 'English', limit: number = 15) => 
+    apiClient.post('/keyword-research/ai-suggestions', { keyword, industry, location, language, limit }),
 };
 
 // Domain Analytics API

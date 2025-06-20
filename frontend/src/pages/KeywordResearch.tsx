@@ -482,6 +482,9 @@ const KeywordResearch: React.FC = () => {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'relevance' | 'volume' | 'difficulty' | 'cpc'>('relevance');
   const [relevanceThreshold, setRelevanceThreshold] = useState(60);
+  const [industry, setIndustry] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiKeywords, setAiKeywords] = useState<KeywordData[]>([]);
   
   // Calculate aggregated metrics
   const aggregatedMetrics = useMemo(() => {
@@ -607,6 +610,46 @@ const KeywordResearch: React.FC = () => {
       case 3: // Long-tail Keywords
         apiCall = keywordResearchApi.getLongTailKeywords(searchTerm, 'United States', 'English', 50);
         break;
+      case 4: // AI Suggestions
+        setAiLoading(true);
+        keywordResearchApi.getAISuggestions(searchTerm, industry, 'United States', 'English', 15)
+          .then(response => {
+            if (response.data && response.data.metrics && response.data.metrics.tasks && 
+                response.data.metrics.tasks[0].result && response.data.metrics.tasks[0].result[0].items) {
+              const resultData = response.data.metrics.tasks[0].result[0].items;
+              const aiGeneratedKeywords = response.data.ai_keywords || [];
+              
+              // Transform API response to our KeywordData format
+              const aiKeywordData: KeywordData[] = resultData
+                .filter((item: any) => aiGeneratedKeywords.includes(item.keyword))
+                .map((item: any) => {
+                  const keyword = item.keyword || '';
+                  return {
+                    keyword,
+                    searchVolume: item.keyword_info?.search_volume || 0,
+                    cpc: item.keyword_info?.cpc || 0,
+                    competition: item.keyword_info?.competition || 0,
+                    difficulty: item.keyword_properties?.keyword_difficulty || 0,
+                    trend: item.keyword_info?.search_volume_trend?.monthly > 0 ? 'up' : 
+                           item.keyword_info?.search_volume_trend?.monthly < 0 ? 'down' : 'stable',
+                    relevanceScore: calculateRelevanceScore(keyword, searchTerm)
+                  };
+                })
+                .sort((a: KeywordData, b: KeywordData) => b.searchVolume - a.searchVolume);
+              
+              setAiKeywords(aiKeywordData);
+            } else {
+              setAiKeywords([]);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching AI keyword suggestions:', error);
+            setAiKeywords([]);
+          })
+          .finally(() => {
+            setAiLoading(false);
+          });
+        return;
       default:
         apiCall = keywordResearchApi.getKeywordIdeas(searchTerm, 'United States', 'English', 50);
     }
@@ -766,69 +809,219 @@ const KeywordResearch: React.FC = () => {
           <Tab label="Related Keywords" />
           <Tab label="Questions" />
           <Tab label="Long-tail Keywords" />
+          <Tab label="AI Suggestions 🤖" />
         </Tabs>
       </Box>
       
-      {/* Aggregated Metrics */}
-      {aggregatedMetrics && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)' }}>
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <VisibilityIcon sx={{ fontSize: 40, color: '#007AFF', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1D1D1F', mb: 0.5 }}>
-                  {aggregatedMetrics.totalVolume.toLocaleString()}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#86868B' }}>
-                  Total Search Volume
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)' }}>
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <AttachMoneyIcon sx={{ fontSize: 40, color: '#5AC8FA', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1D1D1F', mb: 0.5 }}>
-                  ${aggregatedMetrics.avgCpc.toFixed(2)}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#86868B' }}>
-                  Average CPC
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)' }}>
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <TrendingUpIcon sx={{ fontSize: 40, color: '#34C759', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1D1D1F', mb: 0.5 }}>
-                  {aggregatedMetrics.highVolumeKeywords}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#86868B' }}>
-                  High Volume (1K+)
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)' }}>
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <TrendingDownIcon sx={{ fontSize: 40, color: '#FF9500', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1D1D1F', mb: 0.5 }}>
-                  {aggregatedMetrics.lowCompetitionKeywords}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#86868B' }}>
-                  Low Competition
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+      {/* Industry Selection for AI Suggestions */}
+      {tabValue === 4 && (
+        <Box sx={{ mb: 4 }}>
+          <Card sx={{ borderRadius: 3, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1D1D1F', mb: 2 }}>
+                AI-Powered Keyword Suggestions
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#86868B', mb: 3 }}>
+                Our AI analyzes your seed keyword and generates semantically related keywords with search metrics. Specify an industry for more targeted suggestions.
+              </Typography>
+              
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Industry (Optional)</InputLabel>
+                    <Select
+                      value={industry}
+                      label="Industry (Optional)"
+                      onChange={(e) => setIndustry(e.target.value)}
+                    >
+                      <MenuItem value="">Any Industry</MenuItem>
+                      <MenuItem value="technology">Technology</MenuItem>
+                      <MenuItem value="design">Design</MenuItem>
+                      <MenuItem value="marketing">Marketing</MenuItem>
+                      <MenuItem value="finance">Finance</MenuItem>
+                      <MenuItem value="health">Health & Wellness</MenuItem>
+                      <MenuItem value="education">Education</MenuItem>
+                      <MenuItem value="ecommerce">E-Commerce</MenuItem>
+                      <MenuItem value="travel">Travel</MenuItem>
+                      <MenuItem value="real_estate">Real Estate</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Box>
       )}
+      
+      {/* AI Keyword Results */}
+      {tabValue === 4 && (
+        <>
+          {aiLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress size={40} />
+            </Box>
+          ) : aiKeywords.length > 0 ? (
+            <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)' }}>
+              <CardContent sx={{ p: { xs: 2, md: 4 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1D1D1F' }}>
+                    AI-Generated Keywords for "{searchTerm}"
+                  </Typography>
+                  <Chip 
+                    label={`${aiKeywords.length} keywords`}
+                    color="primary"
+                    size="small"
+                    sx={{ fontWeight: 500 }}
+                  />
+                </Box>
+                
+                <TableContainer sx={{ borderRadius: 2, border: '1px solid rgba(0, 0, 0, 0.05)' }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Keyword</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>Search Volume</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>CPC ($)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>Competition</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>Difficulty</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>Trend</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {aiKeywords.map((keyword, index) => (
+                        <TableRow hover key={`aiKeyword-${index}`}>
+                          <TableCell sx={{ fontWeight: 500 }}>{keyword.keyword}</TableCell>
+                          <TableCell align="right">{keyword.searchVolume.toLocaleString()}</TableCell>
+                          <TableCell align="right">${keyword.cpc.toFixed(2)}</TableCell>
+                          <TableCell align="right">
+                            {Math.round(keyword.competition * 100)}%
+                          </TableCell>
+                          <TableCell align="center">
+                            <DifficultyIndicator value={keyword.difficulty} />
+                          </TableCell>
+                          <TableCell align="center">
+                            {keyword.trend === 'up' && <TrendingUpIcon sx={{ color: '#34C759' }} />}
+                            {keyword.trend === 'down' && <TrendingDownIcon sx={{ color: '#FF3B30' }} />}
+                            {keyword.trend === 'stable' && <span>—</span>}
+                          </TableCell>
+                          <TableCell align="center">
+                            <Button
+                              size="small"
+                              variant={selectedKeywords.includes(keyword.keyword) ? "contained" : "outlined"}
+                              sx={{ minWidth: 110 }}
+                              onClick={() => toggleKeywordSelection(keyword.keyword)}
+                            >
+                              {selectedKeywords.includes(keyword.keyword) ? 'Selected' : 'Select'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          ) : searchTerm ? (
+            <Box sx={{ textAlign: 'center', py: 8, color: '#86868B' }}>
+              <Typography variant="h6">
+                No AI suggestions found. Try a different keyword or industry.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 8, color: '#86868B' }}>
+              <Typography variant="h6">
+                Enter a keyword above to get AI-powered keyword suggestions.
+              </Typography>
+            </Box>
+          )}
+          
+          {aiKeywords.length > 0 && (
+            <KeywordOpportunities keywords={aiKeywords} />
+          )}
+        </>
+      )}
+      
+      {/* Regular Keyword Results */}
+      {tabValue !== 4 && (loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress size={40} />
+        </Box>
+      ) : keywords.length > 0 ? (
+        <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)' }}>
+          <CardContent sx={{ p: { xs: 2, md: 4 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1D1D1F' }}>
+                Keyword Results for "{searchTerm}"
+              </Typography>
+              <Chip 
+                label={`${keywords.length} keywords`}
+                color="primary"
+                size="small"
+                sx={{ fontWeight: 500 }}
+              />
+            </Box>
+            
+            <TableContainer sx={{ borderRadius: 2, border: '1px solid rgba(0, 0, 0, 0.05)' }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Keyword</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>Search Volume</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>CPC ($)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>Competition</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>Difficulty</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>Trend</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedKeywords.map((keyword, index) => (
+                    <TableRow hover key={`keyword-${index}`}>
+                      <TableCell sx={{ fontWeight: 500 }}>{keyword.keyword}</TableCell>
+                      <TableCell align="right">{keyword.searchVolume.toLocaleString()}</TableCell>
+                      <TableCell align="right">${keyword.cpc.toFixed(2)}</TableCell>
+                      <TableCell align="right">
+                        {Math.round(keyword.competition * 100)}%
+                      </TableCell>
+                      <TableCell align="center">
+                        <DifficultyIndicator value={keyword.difficulty} />
+                      </TableCell>
+                      <TableCell align="center">
+                        {keyword.trend === 'up' && <TrendingUpIcon sx={{ color: '#34C759' }} />}
+                        {keyword.trend === 'down' && <TrendingDownIcon sx={{ color: '#FF3B30' }} />}
+                        {keyword.trend === 'stable' && <span>—</span>}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Button
+                          size="small"
+                          variant={selectedKeywords.includes(keyword.keyword) ? "contained" : "outlined"}
+                          sx={{ minWidth: 110 }}
+                          onClick={() => toggleKeywordSelection(keyword.keyword)}
+                        >
+                          {selectedKeywords.includes(keyword.keyword) ? 'Selected' : 'Select'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      ) : searchTerm ? (
+        <Box sx={{ textAlign: 'center', py: 8, color: '#86868B' }}>
+          <Typography variant="h6">
+            No keywords found. Try a different keyword or filter.
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ textAlign: 'center', py: 8, color: '#86868B' }}>
+          <Typography variant="h6">
+            Enter a keyword above to get started.
+          </Typography>
+        </Box>
+      ))}
       
       {/* Charts Section */}
       {aggregatedMetrics && (
